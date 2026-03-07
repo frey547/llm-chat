@@ -1,10 +1,19 @@
 import pytest
+import asyncio
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """整个测试会话共用一个 event loop，避免异步客户端跨 loop 报错"""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest.fixture(scope="session")
@@ -15,10 +24,9 @@ def client():
 
 @pytest.fixture(autouse=True)
 def clean_tables():
-    """测试前后都清表，保证完全隔离"""
-    _clean()      # 测试开始前清
+    _clean()
     yield
-    _clean()      # 测试结束后清
+    _clean()
 
 
 def _clean():

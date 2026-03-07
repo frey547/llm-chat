@@ -6,7 +6,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
 from app.api.v1 import router as api_v1_router
-from app.middleware import RequestLoggingMiddleware
+from app.middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from app.services.cache_service import close_redis
 
 
@@ -21,7 +21,6 @@ async def lifespan(app: FastAPI):
         env=settings.app_env,
     )
     yield
-    # 优雅关闭：释放 Redis 连接池
     await close_redis()
     logger.info("application_shutdown")
 
@@ -30,14 +29,16 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="AI 聊天机器人 —— DevOps 工程实践项目",
+        description="AI 聊天机器人",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
 
-    app.add_middleware(RequestLoggingMiddleware)
+    # 中间件注册（后注册先执行）
+    app.add_middleware(RateLimitMiddleware)       # 第二层：限流
+    app.add_middleware(RequestLoggingMiddleware)  # 第一层：日志
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"] if not settings.is_production else [],
